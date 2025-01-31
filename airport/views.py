@@ -1,8 +1,12 @@
+from django.db.models import Count, F
 from django.shortcuts import render
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiParameter
-from rest_framework import viewsets, mixins
+from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
 from rest_framework.utils import timezone
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
@@ -19,6 +23,7 @@ from airport.serializers import (
     OrderListSerializer,
     FlightListSerializer,
     FlightDetailSerializer,
+    AirplaneDetailSerializer,
 )
 
 
@@ -45,13 +50,67 @@ class AirplaneTypeViewSet(
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)
 
 
+@extend_schema()
 class AirplaneViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
     queryset = Airplane.objects.all()
     serializer_class = AirplaneSerializer
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)
 
-    # def get_queryset(self):
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        airplane_type_id = self.request.query_params.get("airplane_type")
+        capacity = self.request.query_params.get("min_capacity")
+
+        if airplane_type_id:
+            queryset = queryset.filter(airplane_type_id=airplane_type_id)
+
+        if capacity:
+            queryset = [plane for plane in queryset if plane.capacity >= int(capacity)]
+
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AirplaneSerializer
+        if self.action == "retrieve":
+            return AirplaneDetailSerializer
+        return AirplaneSerializer
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="airplane_type",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Filter by airplane_type_id (example: ?airplane_type=2)",
+            ),
+            OpenApiParameter(
+                name="min_capacity",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Filter by seat capacity (example: ?capacity=150)",
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @action(
+        methods=["POST"],
+        detail=True,
+        url_path="upload-image",
+        permission_classes=[IsAdminUser],
+    )
+    def upload_image(self, request, pk=None):
+        airplane = self.get_object()
+        serializer = self.get_serializer(airplane, data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CrewViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
@@ -84,7 +143,15 @@ class CrewViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet
     ]
 )
 class FlightViewSet(ModelViewSet):
-    queryset = Flight.objects.all()
+    queryset = (
+        Flight.objects.all()
+        .select_related("route", "airplane")
+        .annotate(
+            tickets_available=(
+                F("airplane__rows") * F("airplane__seats_in_row") - Count("tickets")
+            )
+        )
+    )
     serializer_class = FlightSerializer
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)

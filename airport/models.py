@@ -11,8 +11,12 @@ class Airport(models.Model):
 
 
 class Route(models.Model):
-    source = models.ForeignKey(Airport, on_delete=models.CASCADE, related_name="routes_from")
-    destination = models.ForeignKey(Airport, on_delete=models.CASCADE, related_name="routes_to")
+    source = models.ForeignKey(
+        Airport, on_delete=models.CASCADE, related_name="routes_from"
+    )
+    destination = models.ForeignKey(
+        Airport, on_delete=models.CASCADE, related_name="routes_to"
+    )
     distance = models.IntegerField()
 
     def __str__(self):
@@ -54,17 +58,19 @@ class Crew(models.Model):
 
 class Flight(models.Model):
     route = models.ForeignKey(Route, on_delete=models.CASCADE)
-    airplane = models.ForeignKey(AirplaneType, on_delete=models.CASCADE)
+    airplane = models.ForeignKey(Airplane, on_delete=models.CASCADE)
     departure_time = models.DateTimeField()
     arrival_time = models.DateTimeField()
-
+    crew = models.ManyToManyField(Crew)
 
     class Meta:
         unique_together = (("route", "airplane"),)
 
     def __str__(self):
-        return (f"{self.route} {self.airplane} {self.departure_time} "
-                f"- {self.arrival_time}")
+        return (
+            f"{self.route} {self.airplane} {self.departure_time} "
+            f"- {self.arrival_time}"
+        )
 
 
 class Order(models.Model):
@@ -74,17 +80,16 @@ class Order(models.Model):
     def __str__(self):
         return f"{self.created_at} - {self.user}"
 
-
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
 
 class Ticket(models.Model):
     row = models.IntegerField()
     seat = models.IntegerField()
 
-    flight = models.ForeignKey(Flight, on_delete=models.CASCADE, related_name='tickets')
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='tickets')
+    flight = models.ForeignKey(Flight, on_delete=models.CASCADE, related_name="tickets")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="tickets")
 
     @staticmethod
     def validate_ticket(row, seat, airplane, error_to_raise):
@@ -100,15 +105,11 @@ class Ticket(models.Model):
                         f"number must be in available range: "
                         f"(1, {airplane_attr_name}):"
                         f"(1, {count_attrs})"
-
                     }
                 )
 
     def clean(self):
-        Ticket.validate_ticket(self.row,
-                               self.seat,
-                               self.flight,
-                               self.order)
+        Ticket.validate_ticket(self.row, self.seat, self.flight, self.order)
 
     def save(
         self,
