@@ -1,7 +1,10 @@
 from django.shortcuts import render
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets, mixins
 from rest_framework.authentication import TokenAuthentication
-from rest_framework.viewsets import GenericViewSet
+from rest_framework.utils import timezone
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from airport.models import Airport, Route, AirplaneType, Airplane, Crew, Flight, Order
 from airport.permissions import IsAdminOrIfAuthenticatedReadOnly
@@ -14,6 +17,8 @@ from airport.serializers import (
     FlightSerializer,
     OrderSerializer,
     OrderListSerializer,
+    FlightListSerializer,
+    FlightDetailSerializer,
 )
 
 
@@ -46,6 +51,8 @@ class AirplaneViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericVie
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)
 
+    # def get_queryset(self):
+
 
 class CrewViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
     queryset = Crew.objects.all()
@@ -54,11 +61,62 @@ class CrewViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)
 
 
-class FlightViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
+@extend_schema(
+    parameters=[
+        OpenApiParameter(
+            name="route_id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description="Filter flights by exact Route ID. Example: ?route_id=5",
+        ),
+        OpenApiParameter(
+            name="airplane_id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description="Filter flights by exact AirplaneType ID. Example: ?airplane_id=2",
+        ),
+        OpenApiParameter(
+            name="departure_after",
+            type=OpenApiTypes.DATETIME,
+            location=OpenApiParameter.QUERY,
+            description="Return only flights departing on or after this time. Example: ?departure_after=2025-01-01T10:00:00Z",
+        ),
+    ]
+)
+class FlightViewSet(ModelViewSet):
     queryset = Flight.objects.all()
     serializer_class = FlightSerializer
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)
+
+    def get_queryset(self):
+        queryset = self.queryset
+
+        route_id = self.request.query_params.get("route_id")
+        airplane_id = self.request.query_params.get("airplane_id")
+        departure_after = self.request.query_params.get("departure_after")
+
+        if route_id:
+            queryset = queryset.filter(route_id=route_id)
+
+        if airplane_id:
+            queryset = queryset.filter(airplane_id=airplane_id)
+
+        if departure_after:
+            dep_time = timezone.datetime.fromisoformat(departure_after)
+            queryset = queryset.filter(departure_time__gte=dep_time)
+
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return FlightListSerializer
+        if self.action == "retrieve":
+            return FlightDetailSerializer
+        return FlightSerializer
+
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class OrderViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
