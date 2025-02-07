@@ -1,8 +1,7 @@
 from django.db.models import Count, F
-from django.shortcuts import render
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiParameter
-from rest_framework import viewsets, mixins, status
+from rest_framework import mixins, status
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser
@@ -24,6 +23,7 @@ from airport.serializers import (
     FlightListSerializer,
     FlightDetailSerializer,
     AirplaneDetailSerializer,
+    AirplaneImageSerializer,
 )
 
 
@@ -51,7 +51,12 @@ class AirplaneTypeViewSet(
 
 
 @extend_schema()
-class AirplaneViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericViewSet):
+class AirplaneViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    GenericViewSet,
+):
     queryset = Airplane.objects.all()
     serializer_class = AirplaneSerializer
     authentication_classes = (TokenAuthentication,)
@@ -76,6 +81,8 @@ class AirplaneViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, GenericVie
             return AirplaneSerializer
         if self.action == "retrieve":
             return AirplaneDetailSerializer
+        if self.action == "upload_image":
+            return AirplaneImageSerializer
         return AirplaneSerializer
 
     @extend_schema(

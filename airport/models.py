@@ -1,5 +1,10 @@
+import os
+import uuid
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.text import slugify
 
 
 class Airport(models.Model):
@@ -30,11 +35,19 @@ class AirplaneType(models.Model):
         return f"{self.name}"
 
 
+def airplane_image_file_path(instance, filename):
+    _, extension = os.path.splitext(filename)
+    filename = f"{slugify(instance.name)}-{uuid.uuid4()}{extension}"
+
+    return os.path.join("uploads/airports/", filename)
+
+
 class Airplane(models.Model):
     name = models.CharField(max_length=255)
     rows = models.IntegerField()
     seats_in_row = models.IntegerField()
     airplane_type = models.ForeignKey(AirplaneType, on_delete=models.CASCADE)
+    image = models.ImageField(null=True, upload_to=airplane_image_file_path)
 
     @property
     def capacity(self):
@@ -95,7 +108,7 @@ class Ticket(models.Model):
     def validate_ticket(row, seat, airplane, error_to_raise):
         for ticket_attr_value, ticket_attr_name, airplane_attr_name in [
             (row, "row", "rows"),
-            (seat, "seat", "seats"),
+            (seat, "seat", "seats_in_row"),
         ]:
             count_attrs = getattr(airplane, airplane_attr_name)
             if not (1 <= ticket_attr_value <= count_attrs):
@@ -109,7 +122,9 @@ class Ticket(models.Model):
                 )
 
     def clean(self):
-        Ticket.validate_ticket(self.row, self.seat, self.flight, self.order)
+        Ticket.validate_ticket(
+            self.row, self.seat, self.flight.airplane, ValidationError
+        )
 
     def save(
         self,

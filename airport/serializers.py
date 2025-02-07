@@ -26,6 +26,12 @@ class RouteSerializer(serializers.ModelSerializer):
         fields = ("id", "source", "destination", "distance")
 
 
+class AirplaneImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Airplane
+        fields = ("id", "image")
+
+
 class AirplaneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Airplane
@@ -70,13 +76,14 @@ class CrewSerializer(serializers.ModelSerializer):
 
 
 class FlightSerializer(serializers.ModelSerializer):
-    route = RouteSerializer()
-    airplane = AirplaneSerializer()
-    crew = CrewSerializer(many=True)
+    route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
+    airplane = serializers.PrimaryKeyRelatedField(queryset=Airplane.objects.all())
+    crew = serializers.PrimaryKeyRelatedField(queryset=Crew.objects.all(), many=True)
 
     class Meta:
         model = Flight
         fields = (
+            "id",
             "route",
             "airplane",
             "departure_time",
@@ -86,10 +93,8 @@ class FlightSerializer(serializers.ModelSerializer):
 
 
 class FlightListSerializer(serializers.ModelSerializer):
-    route = serializers.SlugRelatedField(many=True, read_only=True, slug_field="name")
-    airplane = serializers.SlugRelatedField(
-        many=True, read_only=True, slug_field="name"
-    )
+    route = serializers.StringRelatedField(read_only=True)
+    airplane = serializers.SlugRelatedField(read_only=True, slug_field="name")
     tickets_available = serializers.IntegerField(read_only=True)
 
     crew = serializers.SlugRelatedField(
@@ -119,6 +124,7 @@ class TicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
         fields = ("id", "row", "seat", "flight", "order")
+        extra_kwargs = {"order": {"read_only": True}}
 
 
 class TicketSeatsSerializer(TicketSerializer):
@@ -132,8 +138,8 @@ class TicketListSerializer(TicketSerializer):
 
 
 class FlightDetailSerializer(serializers.ModelSerializer):
-    route = RouteSerializer(many=True, read_only=True)
-    airplane = AirplaneSerializer(many=True, read_only=True)
+    route = RouteSerializer(read_only=True)
+    airplane = AirplaneSerializer(read_only=True)
     taken_places = TicketSeatsSerializer(source="tickets", many=True, read_only=True)
     crew = CrewSerializer(many=True)
 
