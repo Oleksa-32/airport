@@ -36,13 +36,13 @@ Get an access token via /api/user/token
 
 ## Features 
 
-• JWT authentication
-• Admin panel: /admin/
-• Documentation at /api/doc/swagger/
-• Manage orders and tickets
-• Create airplanes, airports, airplane types
-• Create routes, crew members
-• Add flights
+* JWT authentication
+* Admin panel: /admin/
+* Documentation at /api/doc/swagger/
+* Manage orders and tickets
+* Create airplanes, airports, airplane types
+* Create routes, crew members
+* Add flights
 
 ## DEMO
 
