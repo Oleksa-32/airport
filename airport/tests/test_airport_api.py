@@ -1,6 +1,6 @@
 import os
 import tempfile
-from datetime import timedelta, datetime
+from datetime import timedelta
 
 from PIL import Image
 from django.contrib.auth import get_user_model

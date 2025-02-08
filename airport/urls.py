@@ -4,7 +4,7 @@ from rest_framework import routers
 from airport import views
 
 router = routers.DefaultRouter()
-router.register('airports', views.AirportViewSet)
+router.register("airports", views.AirportViewSet)
 router.register("routes", views.RouteViewSet)
 router.register("airplane_types", views.AirplaneTypeViewSet)
 router.register("airplanes", views.AirplaneViewSet)
@@ -14,4 +14,4 @@ router.register("orders", views.OrderViewSet)
 
 urlpatterns = [path("", include(router.urls))]
 
-app_name = 'airport'
+app_name = "airport"
